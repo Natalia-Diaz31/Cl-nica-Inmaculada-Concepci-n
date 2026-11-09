@@ -1,0 +1,6 @@
+{
+  "name": "Mi Cita Parroquial",
+  "description": "Sistema integral de gestión de citas médicas para la Clínica Inmaculada Concepción en El Salvador, con accesos para pacientes, recepción, profesionales de salud y administración.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
