@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Appointment, FigmaScreenId, HealthcareProfessional, Patient, Role, WaitlistEntry } from './types';
+import { Appointment, FigmaScreenId, HealthcareProfessional, Patient, Role, WaitlistEntry, ServiceCategory } from './types';
 import { ClinicStorage } from './services/storage';
 import { RulesEngine } from './services/rulesEngine';
 import { Navbar } from './components/common/Navbar';
-import { RoleSwitcher } from './components/common/RoleSwitcher';
+import { RoleSwitcher, DeviceViewMode } from './components/common/RoleSwitcher';
+import { InitialRoleSelection } from './components/common/InitialRoleSelection';
+import { PatientLoginView } from './components/patient/PatientLoginView';
 import { Footer } from './components/common/Footer';
 import { ToastContainer, ToastMessage } from './components/common/Toast';
 import { PatientPortal } from './components/patient/PatientPortal';
@@ -18,13 +20,18 @@ export default function App() {
     ClinicStorage.initDefaults();
   }, []);
 
-  // State
-  const [currentRole, setCurrentRole] = useState<Role>('paciente');
+  // MANDATORY FIRST SCREEN: Role starts as null!
+  // App opens ALWAYS with the Welcome Role Selection Screen (Figma structure)
+  const [currentRole, setCurrentRole] = useState<Role | null>(null);
+  const [patientAuthenticated, setPatientAuthenticated] = useState<boolean>(false);
+  const [deviceMode, setDeviceMode] = useState<DeviceViewMode>('desktop');
+
+  // Active entity identifiers
   const [currentPatientId, setCurrentPatientId] = useState<string>('pat-1');
   const [currentProfessionalId, setCurrentProfessionalId] = useState<string>('prof-1');
 
-  // Navigation tab state (defaults to 'inicio' P01)
-  const [activeTab, setActiveTab] = useState<string>('inicio');
+  // Navigation tab state (defaults to 'servicios' P03 once in patient role)
+  const [activeTab, setActiveTab] = useState<string>('servicios');
   const [activeScreenId, setActiveScreenId] = useState<FigmaScreenId>('P01');
 
   // Modals & Navigation triggers
@@ -59,7 +66,7 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Sync / Refresh helper
+  // Sync helper
   const refreshData = () => {
     setAppointments(ClinicStorage.getAppointments());
     setPatients(ClinicStorage.getPatients());
@@ -67,12 +74,69 @@ export default function App() {
     setWaitlist(ClinicStorage.getWaitlist());
   };
 
-  // Tab change with screen indicator update
+  // Exit back to Initial Role Selection Screen
+  const handleExitToInitialScreen = () => {
+    setCurrentRole(null);
+    setPatientAuthenticated(false);
+    setIsPatientBookingOpen(false);
+    setIsAssistedBookingOpen(false);
+    setActiveScreenId('P01');
+    showToast('info', 'Selección de Rol', 'Has regresado a la pantalla inicial.');
+  };
+
+  // Role Selection from Initial Screen
+  const handleSelectRole = (role: Role) => {
+    setCurrentRole(role);
+    setDirectAction(null);
+    setIsPatientBookingOpen(false);
+    setIsAssistedBookingOpen(false);
+
+    if (role === 'paciente') {
+      // Patient must log in with DUI or create account
+      setPatientAuthenticated(false);
+      setActiveTab('inicio');
+      setActiveScreenId('P02');
+    } else if (role === 'recepcion') {
+      setActiveTab('agenda');
+      setActiveScreenId('P10');
+      showToast('info', 'Acceso a Recepción', 'Bienvenida Carmen Menjívar · Ventanilla y Agenda');
+    } else if (role === 'profesional') {
+      setActiveTab('citas_doctor');
+      setActiveScreenId('P14');
+      const prof = professionals.find((p) => p.id === currentProfessionalId);
+      showToast('info', 'Acceso a Profesional de Salud', prof ? `${prof.name} · ${prof.serviceName}` : undefined);
+    } else if (role === 'admin') {
+      setActiveTab('reportes_ocupacion');
+      setActiveScreenId('P17');
+      showToast('info', 'Acceso Administrativo', 'Dirección Médica y Reportes Institucionales');
+    }
+  };
+
+  // Patient Login Success
+  const handlePatientLoginSuccess = (patientId: string) => {
+    setCurrentPatientId(patientId);
+    setPatientAuthenticated(true);
+    setActiveTab('inicio');
+    setActiveScreenId('P03');
+    const pat = patients.find((p) => p.id === patientId);
+    showToast('success', 'Sesión iniciada', pat ? `Bienvenido/a, ${pat.fullName}` : 'Bienvenido/a a Mi Cita Parroquial');
+  };
+
+  // New Patient Registered
+  const handlePatientCreated = (newPatient: Patient) => {
+    refreshData();
+    setCurrentPatientId(newPatient.id);
+    setPatientAuthenticated(true);
+    setActiveTab('inicio');
+    setActiveScreenId('P03');
+    showToast('success', 'Cuenta creada exitosamente', `Bienvenido/a, ${newPatient.fullName}`);
+  };
+
+  // Tab change
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     setDirectAction(null);
-    if (tab === 'inicio') setActiveScreenId('P01');
-    else if (tab === 'servicios') setActiveScreenId('P03');
+    if (tab === 'servicios' || tab === 'inicio') setActiveScreenId('P03');
     else if (tab === 'mis_citas') setActiveScreenId('P07');
     else if (tab === 'confirmacion') setActiveScreenId('P06');
     else if (tab === 'recordatorios') setActiveScreenId('P15');
@@ -84,90 +148,63 @@ export default function App() {
     else if (tab === 'reportes_ocupacion' || tab === 'reportes_inasistencias') setActiveScreenId('P17');
   };
 
-  // Handle Role change
-  const handleRoleChange = (newRole: Role) => {
-    setCurrentRole(newRole);
-    setDirectAction(null);
-    setIsPatientBookingOpen(false);
-    setIsAssistedBookingOpen(false);
-    if (newRole === 'paciente') {
-      setActiveTab('inicio');
-      setActiveScreenId('P01');
-    } else if (newRole === 'recepcion') {
-      setActiveTab('agenda');
-      setActiveScreenId('P10');
-    } else if (newRole === 'profesional') {
-      setActiveTab('citas_doctor');
-      setActiveScreenId('P14');
-    } else if (newRole === 'admin') {
-      setActiveTab('reportes_ocupacion');
-      setActiveScreenId('P17');
-    }
-    showToast('info', `Cambiado a modo ${newRole.toUpperCase()}`, 'Puedes explorar todos los flujos e interacciones correspondientes.');
-  };
-
-  // Direct 1-click jump to any Figma screen (P01-P17)
+  // Demo mode 1-click jump to any Figma screen (P01-P17)
   const handleNavigateScreen = (screenId: FigmaScreenId) => {
     setActiveScreenId(screenId);
     switch (screenId) {
-      case 'P01': // Inicio
-        setCurrentRole('paciente');
-        setActiveTab('inicio');
-        setIsPatientBookingOpen(false);
-        setIsAuthOpen(false);
-        setDirectAction(null);
+      case 'P01': // Initial Role Screen
+        setCurrentRole(null);
+        setPatientAuthenticated(false);
         break;
-      case 'P02': // Registro
+      case 'P02': // Patient Registration / Login
         setCurrentRole('paciente');
-        setAuthInitialMode('register');
-        setIsAuthOpen(true);
-        setIsPatientBookingOpen(false);
+        setPatientAuthenticated(false);
         break;
       case 'P03': // Servicios (Paso 1 del Agendamiento)
         setCurrentRole('paciente');
+        setPatientAuthenticated(true);
         setActiveTab('servicios');
         setBookingStep(1);
         setIsPatientBookingOpen(true);
-        setIsAuthOpen(false);
         break;
       case 'P04': // Calendario (Paso 2/3 del Agendamiento)
         setCurrentRole('paciente');
+        setPatientAuthenticated(true);
         setActiveTab('servicios');
         setBookingStep(2);
         setIsPatientBookingOpen(true);
-        setIsAuthOpen(false);
         break;
       case 'P05': // Confirmar (Paso 4 del Agendamiento)
         setCurrentRole('paciente');
+        setPatientAuthenticated(true);
         setActiveTab('servicios');
         setBookingStep(4);
         setIsPatientBookingOpen(true);
-        setIsAuthOpen(false);
         break;
       case 'P06': // Confirmación (Comprobante / Ticket)
         setCurrentRole('paciente');
+        setPatientAuthenticated(true);
         setIsPatientBookingOpen(false);
-        setIsAuthOpen(false);
         setActiveTab('confirmacion');
         break;
       case 'P07': // Mis citas
         setCurrentRole('paciente');
+        setPatientAuthenticated(true);
         setIsPatientBookingOpen(false);
-        setIsAuthOpen(false);
         setDirectAction(null);
         setActiveTab('mis_citas');
         break;
       case 'P08': // Cancelar
         setCurrentRole('paciente');
+        setPatientAuthenticated(true);
         setIsPatientBookingOpen(false);
-        setIsAuthOpen(false);
         setActiveTab('mis_citas');
         setDirectAction('cancel');
         break;
       case 'P09': // Reprogramar
         setCurrentRole('paciente');
+        setPatientAuthenticated(true);
         setIsPatientBookingOpen(false);
-        setIsAuthOpen(false);
         setActiveTab('mis_citas');
         setDirectAction('reschedule');
         break;
@@ -195,14 +232,14 @@ export default function App() {
         break;
       case 'P15': // Notificaciones
         setCurrentRole('paciente');
+        setPatientAuthenticated(true);
         setIsPatientBookingOpen(false);
-        setIsAuthOpen(false);
         setActiveTab('recordatorios');
         break;
       case 'P16': // Lista de espera
         setCurrentRole('paciente');
+        setPatientAuthenticated(true);
         setIsPatientBookingOpen(false);
-        setIsAuthOpen(false);
         setActiveTab('espera');
         break;
       case 'P17': // Reportes (Admin)
@@ -220,21 +257,144 @@ export default function App() {
     refreshData();
     setCurrentPatientId('pat-1');
     setCurrentProfessionalId('prof-1');
-    showToast('success', 'Datos de prueba restablecidos', 'Se han restaurado los pacientes, profesionales y citas iniciales.');
+    showToast('success', 'Datos restablecidos', 'Se han restaurado los datos y citas de demostración iniciales.');
   };
 
   // Current logged in / simulated entities
   const currentPatient = patients.find((p) => p.id === currentPatientId) || patients[0];
   const currentProfessional = professionals.find((p) => p.id === currentProfessionalId) || professionals[0];
-
   const suspensionCheck = currentPatient ? RulesEngine.isPatientSuspended(currentPatient) : { allowed: true };
 
+  // Render Core Functional Workspace based on Role
+  const renderWorkspace = () => {
+    // 1. MANDATORY INITIAL ROLE SELECTION SCREEN
+    if (currentRole === null) {
+      return (
+        <div className="flex-1 flex flex-col justify-center">
+          <InitialRoleSelection onSelectRole={handleSelectRole} />
+        </div>
+      );
+    }
+
+    // 2. PATIENT AUTHENTICATION STEP
+    if (currentRole === 'paciente' && !patientAuthenticated) {
+      return (
+        <div className="flex-1 flex flex-col justify-center">
+          <PatientLoginView
+            onBackToRoleSelection={handleExitToInitialScreen}
+            onLoginSuccess={handlePatientLoginSuccess}
+            onPatientCreated={handlePatientCreated}
+            patients={patients}
+          />
+        </div>
+      );
+    }
+
+    // 3. AUTHENTICATED PORTALS WITH FIGMA FIDELITY
+    return (
+      <div className="flex-1 flex flex-col">
+        {/* Navigation Bar */}
+        <Navbar
+          currentRole={currentRole}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          onExitRole={handleExitToInitialScreen}
+          onOpenBookingModal={() => {
+            if (currentRole === 'paciente') {
+              setBookingStep(1);
+              setIsPatientBookingOpen(true);
+            } else if (currentRole === 'recepcion') {
+              setIsAssistedBookingOpen(true);
+            }
+          }}
+          patientName={currentPatient?.fullName}
+          isSuspended={!suspensionCheck.allowed}
+        />
+
+        {/* Role Portal Main Views */}
+        <main className="flex-1">
+          {currentRole === 'paciente' && currentPatient && (
+            <PatientPortal
+              currentPatient={currentPatient}
+              appointments={appointments}
+              professionals={professionals}
+              waitlist={waitlist}
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              onDataUpdated={() => {
+                refreshData();
+                showToast('success', 'Operación completada', 'Se actualizó tu información de citas.');
+              }}
+              patients={patients}
+              onPatientChange={(id) => setCurrentPatientId(id)}
+              initialBookingStep={bookingStep}
+              directAction={directAction}
+              isBookingOpen={isPatientBookingOpen}
+              onSetIsBookingOpen={setIsPatientBookingOpen}
+              isAuthOpen={isAuthOpen}
+              onSetIsAuthOpen={setIsAuthOpen}
+              authInitialMode={authInitialMode}
+              latestConfirmedAppointment={latestConfirmedAppointment}
+              onSetLatestConfirmedAppointment={setLatestConfirmedAppointment}
+            />
+          )}
+
+          {currentRole === 'recepcion' && (
+            <ReceptionPortal
+              appointments={appointments}
+              professionals={professionals}
+              patients={patients}
+              waitlist={waitlist}
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              onDataUpdated={() => {
+                refreshData();
+                showToast('success', 'Agenda actualizada', 'Se registraron los cambios en el sistema parroquial.');
+              }}
+              isAssistedBookingOpen={isAssistedBookingOpen}
+              setIsAssistedBookingOpen={setIsAssistedBookingOpen}
+            />
+          )}
+
+          {currentRole === 'profesional' && currentProfessional && (
+            <ProfessionalPortal
+              currentProfessional={currentProfessional}
+              appointments={appointments}
+              patients={patients}
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              onDataUpdated={() => {
+                refreshData();
+                showToast('success', 'Agenda médica guardada', 'Los cambios en horarios o atenciones se han aplicado.');
+              }}
+              professionals={professionals}
+              onProfessionalChange={(id) => setCurrentProfessionalId(id)}
+            />
+          )}
+
+          {currentRole === 'admin' && (
+            <AdminPortal
+              appointments={appointments}
+              professionals={professionals}
+              patients={patients}
+              activeTab={activeTab}
+            />
+          )}
+        </main>
+
+        {/* Footer */}
+        <Footer />
+      </div>
+    );
+  };
+
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50/70 text-slate-800">
-      {/* 1. Quick Demo Switcher Bar */}
+    <div className="min-h-screen flex flex-col bg-slate-100 font-sans text-slate-800 antialiased selection:bg-blue-100 selection:text-blue-900">
+      {/* 1. Quick Device & Role Controller Bar (Sticky Top) */}
       <RoleSwitcher
         currentRole={currentRole}
-        onRoleChange={handleRoleChange}
+        onRoleChange={handleSelectRole}
+        onExitToInitialScreen={handleExitToInitialScreen}
         patients={patients}
         currentPatientId={currentPatientId}
         onPatientChange={(id) => {
@@ -256,105 +416,79 @@ export default function App() {
         onResetData={handleResetData}
         activeScreenId={activeScreenId}
         onNavigateScreen={handleNavigateScreen}
+        deviceMode={deviceMode}
+        onToggleDeviceMode={setDeviceMode}
       />
 
-      {/* 2. Top Navigation Bar (Top Bar Contract) */}
-      <Navbar
-        currentRole={currentRole}
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
-        onOpenBookingModal={() => {
-          if (currentRole === 'paciente') {
-            setBookingStep(1);
-            setIsPatientBookingOpen(true);
-          } else if (currentRole === 'recepcion') {
-            setIsAssistedBookingOpen(true);
-          }
-        }}
-        onOpenAuthModal={() => {
-          setAuthInitialMode('login');
-          setIsAuthOpen(true);
-        }}
-        patientName={currentPatient?.fullName}
-        isSuspended={!suspensionCheck.allowed}
-      />
+      {/* 2. Responsive View Adaptation: Computadora / Tablet / Teléfono */}
+      {deviceMode === 'desktop' && (
+        <div className="flex-1 flex flex-col w-full bg-slate-50">
+          {renderWorkspace()}
+        </div>
+      )}
 
-      {/* 3. Main Workspace Router */}
-      <main className="flex-1">
-        {currentRole === 'paciente' && currentPatient && (
-          <PatientPortal
-            currentPatient={currentPatient}
-            appointments={appointments}
-            professionals={professionals}
-            waitlist={waitlist}
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-            onDataUpdated={() => {
-              refreshData();
-              showToast('success', 'Operación completada', 'Se actualizó tu información de citas.');
-            }}
-            patients={patients}
-            onPatientChange={(id) => setCurrentPatientId(id)}
-            initialBookingStep={bookingStep}
-            directAction={directAction}
-            isBookingOpen={isPatientBookingOpen}
-            onSetIsBookingOpen={setIsPatientBookingOpen}
-            isAuthOpen={isAuthOpen}
-            onSetIsAuthOpen={setIsAuthOpen}
-            authInitialMode={authInitialMode}
-            latestConfirmedAppointment={latestConfirmedAppointment}
-            onSetLatestConfirmedAppointment={setLatestConfirmedAppointment}
-          />
-        )}
+      {deviceMode === 'tablet' && (
+        <div className="flex-1 py-6 px-4 flex flex-col items-center justify-start overflow-y-auto bg-slate-900/90">
+          <div className="text-center mb-3 text-slate-300 text-xs">
+            <span className="font-bold text-white">Vista Tablet (768 px)</span>
+            <span className="text-slate-400 block text-[11px]">Diseño intermedio para interacción táctil cómoda</span>
+          </div>
 
-        {currentRole === 'recepcion' && (
-          <ReceptionPortal
-            appointments={appointments}
-            professionals={professionals}
-            patients={patients}
-            waitlist={waitlist}
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-            onDataUpdated={() => {
-              refreshData();
-              showToast('success', 'Agenda actualizada', 'Se registraron los cambios en el sistema parroquial.');
-            }}
-            isAssistedBookingOpen={isAssistedBookingOpen}
-            setIsAssistedBookingOpen={setIsAssistedBookingOpen}
-          />
-        )}
+          {/* 768px Tablet Frame */}
+          <div className="w-[768px] max-w-full min-h-[880px] rounded-[36px] border-[10px] border-slate-900 bg-slate-50 shadow-2xl relative overflow-hidden flex flex-col ring-1 ring-slate-800 my-2">
+            {/* Tablet Status Header */}
+            <div className="bg-[#244A86] text-white text-[11px] font-semibold px-6 py-2 flex items-center justify-between select-none shrink-0 border-b border-blue-900/40">
+              <span className="font-bold">Clínica Inmaculada Concepción</span>
+              <div className="flex items-center gap-2 text-white/90">
+                <Wifi className="w-3.5 h-3.5" />
+                <Battery className="w-4 h-4" />
+              </div>
+            </div>
 
-        {currentRole === 'profesional' && currentProfessional && (
-          <ProfessionalPortal
-            currentProfessional={currentProfessional}
-            appointments={appointments}
-            patients={patients}
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-            onDataUpdated={() => {
-              refreshData();
-              showToast('success', 'Agenda médica guardada', 'Los cambios en horarios o atenciones se han aplicado.');
-            }}
-            professionals={professionals}
-            onProfessionalChange={(id) => setCurrentProfessionalId(id)}
-          />
-        )}
+            {/* Tablet Content */}
+            <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden">
+              {renderWorkspace()}
+            </div>
+          </div>
+        </div>
+      )}
 
-        {currentRole === 'admin' && (
-          <AdminPortal
-            appointments={appointments}
-            professionals={professionals}
-            patients={patients}
-            activeTab={activeTab}
-          />
-        )}
-      </main>
+      {deviceMode === 'mobile' && (
+        <div className="flex-1 py-6 px-4 flex flex-col items-center justify-start overflow-y-auto bg-slate-900/90">
+          <div className="text-center mb-3 text-slate-300 text-xs">
+            <span className="font-bold text-white">Vista Celular Figma (390 px)</span>
+            <span className="text-slate-400 block text-[11px]">Diseño vertical fiel al prototipo móvil de la Clínica</span>
+          </div>
 
-      {/* 5. Toast Feedback Container */}
+          {/* 390px Mobile Phone Frame */}
+          <div className="w-[390px] max-w-full min-h-[820px] rounded-[48px] border-[10px] border-slate-900 bg-slate-50 shadow-2xl relative overflow-hidden flex flex-col ring-1 ring-slate-800 my-2">
+            {/* iOS Dynamic Island & Status Bar */}
+            <div className="bg-[#244A86] text-white text-[12px] font-semibold px-5 pt-3 pb-1.5 flex items-center justify-between select-none shrink-0 border-b border-blue-900/40">
+              <span>9:41</span>
+              <div className="w-24 h-4 bg-slate-950 rounded-full flex items-center justify-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-800 mr-2"></div>
+              </div>
+              <div className="flex items-center gap-1.5 text-white/90">
+                <Wifi className="w-3.5 h-3.5" />
+                <Battery className="w-4 h-4" />
+              </div>
+            </div>
+
+            {/* Mobile Scrollable Container */}
+            <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden">
+              {renderWorkspace()}
+            </div>
+
+            {/* iOS Home Indicator Bar */}
+            <div className="bg-slate-100 py-1.5 flex justify-center items-center shrink-0 border-t border-slate-200">
+              <div className="w-28 h-1 bg-slate-400 rounded-full"></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Toast Feedback Container */}
       <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
-
-      {/* 6. Footer */}
-      <Footer />
     </div>
   );
 }

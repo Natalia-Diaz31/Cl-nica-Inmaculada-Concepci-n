@@ -1,6 +1,6 @@
 import React from 'react';
 import { Role } from '../../types';
-import { PlusCircle, CalendarPlus, ShieldAlert, Sparkles, Home, User } from 'lucide-react';
+import { PlusCircle, CalendarPlus, ShieldAlert, Sparkles, Home, User, LogOut } from 'lucide-react';
 
 interface NavbarProps {
   currentRole: Role;
@@ -8,6 +8,7 @@ interface NavbarProps {
   onTabChange: (tab: string) => void;
   onOpenBookingModal: () => void;
   onOpenAuthModal?: () => void;
+  onExitRole?: () => void;
   patientName?: string;
   isSuspended?: boolean;
 }
@@ -18,6 +19,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onTabChange,
   onOpenBookingModal,
   onOpenAuthModal,
+  onExitRole,
   patientName,
   isSuspended,
 }) => {
@@ -49,15 +51,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 onClick={() => onTabChange('inicio')}
                 className={`transition-colors whitespace-nowrap py-1 ${
-                  activeTab === 'inicio' ? 'text-[#244A86] font-bold border-b-2 border-[#244A86]' : 'hover:text-slate-900'
-                }`}
-              >
-                Inicio
-              </button>
-              <button
-                onClick={() => onTabChange('servicios')}
-                className={`transition-colors whitespace-nowrap py-1 ${
-                  activeTab === 'servicios' ? 'text-[#244A86] font-bold border-b-2 border-[#244A86]' : 'hover:text-slate-900'
+                  activeTab === 'servicios' || activeTab === 'inicio' ? 'text-[#244A86] font-bold border-b-2 border-[#244A86]' : 'hover:text-slate-900'
                 }`}
               >
                 Servicios
@@ -77,14 +71,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 Familiares
-              </button>
-              <button
-                onClick={() => onTabChange('espera')}
-                className={`transition-colors whitespace-nowrap py-1 ${
-                  activeTab === 'espera' ? 'text-[#244A86] font-bold border-b-2 border-[#244A86]' : 'hover:text-slate-900'
-                }`}
-              >
-                Lista de Espera
               </button>
               <button
                 onClick={() => onTabChange('recordatorios')}
@@ -240,6 +226,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span>Exportar Reporte</span>
             </button>
           )}
+
+          {onExitRole && (
+            <button
+              onClick={onExitRole}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200"
+              title="Cambiar de rol o cerrar sesión"
+            >
+              <LogOut className="w-3.5 h-3.5 text-slate-400" />
+              <span className="hidden sm:inline">Cambiar Rol</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -249,13 +246,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <>
             <button
               onClick={() => onTabChange('inicio')}
-              className={`px-3 py-1.5 rounded-lg shrink-0 ${activeTab === 'inicio' ? 'bg-[#244A86] text-white font-bold' : 'text-slate-600'}`}
-            >
-              Inicio
-            </button>
-            <button
-              onClick={() => onTabChange('servicios')}
-              className={`px-3 py-1.5 rounded-lg shrink-0 ${activeTab === 'servicios' ? 'bg-[#244A86] text-white font-bold' : 'text-slate-600'}`}
+              className={`px-3 py-1.5 rounded-lg shrink-0 ${activeTab === 'servicios' || activeTab === 'inicio' ? 'bg-[#244A86] text-white font-bold' : 'text-slate-600'}`}
             >
               Servicios
             </button>
@@ -266,10 +257,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               Mis Citas
             </button>
             <button
-              onClick={() => onTabChange('espera')}
-              className={`px-3 py-1.5 rounded-lg shrink-0 ${activeTab === 'espera' ? 'bg-[#244A86] text-white font-bold' : 'text-slate-600'}`}
+              onClick={() => onTabChange('familiares')}
+              className={`px-3 py-1.5 rounded-lg shrink-0 ${activeTab === 'familiares' ? 'bg-[#244A86] text-white font-bold' : 'text-slate-600'}`}
             >
-              Espera
+              Familiares
             </button>
             <button
               onClick={() => onTabChange('recordatorios')}

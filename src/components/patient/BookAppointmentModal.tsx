@@ -595,13 +595,33 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
               </div>
             </div>
 
-            {availableSlots.length === 0 ? (
-              <div className="p-6 text-center border border-dashed border-slate-300 rounded-2xl bg-slate-50">
-                <Clock className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                <p className="text-xs font-bold text-slate-800">No hay horarios libres en esta fecha</p>
-                <p className="text-[11px] text-slate-500 mt-1 max-w-sm mx-auto">
-                  Todos los cupos están reservados o el profesional no atiende este día. Puedes elegir otra fecha o unirte a la lista de espera por si alguien cancela.
+            {availableSlots.length === 0 || availableSlots.filter((s) => s.available).length === 0 ? (
+              <div className="p-6 text-center border border-dashed border-blue-200 rounded-2xl bg-blue-50/40">
+                <Clock className="w-8 h-8 text-[#244A86] mx-auto mb-2" />
+                <p className="text-sm font-bold text-slate-900">No hay horarios disponibles para esta fecha</p>
+                <p className="text-xs text-slate-600 mt-1 max-w-sm mx-auto leading-relaxed">
+                  Todos los cupos de atención para esta jornada están reservados o el profesional no atiende este día. Puedes elegir la siguiente fecha o unirte como opción secundaria a la lista de espera.
                 </p>
+
+                {(() => {
+                  const nextD = new Date(selectedDate);
+                  nextD.setDate(nextD.getDate() + 1);
+                  const nextDateStr = nextD.toISOString().split('T')[0];
+                  return (
+                    <div className="mt-3 p-3 bg-white rounded-xl border border-blue-100 max-w-xs mx-auto text-xs text-slate-700 shadow-2xs">
+                      <p className="font-semibold text-[#244A86]">Fecha recomendada:</p>
+                      <p className="mt-0.5 font-medium">{nextDateStr}</p>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDate(nextDateStr)}
+                        className="mt-2 text-xs font-bold text-[#244A86] hover:underline block mx-auto"
+                      >
+                        Consultar horarios del {nextDateStr} →
+                      </button>
+                    </div>
+                  );
+                })()}
+
                 <div className="mt-4 flex flex-col sm:flex-row gap-2 justify-center">
                   <button
                     type="button"
@@ -609,16 +629,16 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                       onJoinWaitlist(selectedServiceId, selectedDate);
                       handleClose();
                     }}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs"
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-xs"
                   >
-                    Unirme a la Lista de Espera
+                    Unirme a la lista de espera
                   </button>
                   <button
                     type="button"
                     onClick={() => setStep(2)}
-                    className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl text-xs font-medium hover:bg-slate-100"
+                    className="px-4 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-xl text-xs font-medium hover:bg-slate-100"
                   >
-                    Cambiar Fecha
+                    Elegir otra fecha
                   </button>
                 </div>
               </div>

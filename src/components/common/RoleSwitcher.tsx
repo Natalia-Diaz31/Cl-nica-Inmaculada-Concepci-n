@@ -8,15 +8,21 @@ import {
   BarChart3,
   AlertTriangle,
   Monitor,
+  Tablet,
   Smartphone,
   ChevronDown,
   Layers,
   X,
+  ArrowLeft,
+  ShieldAlert,
 } from 'lucide-react';
 
+export type DeviceViewMode = 'desktop' | 'tablet' | 'mobile';
+
 interface RoleSwitcherProps {
-  currentRole: Role;
+  currentRole: Role | null;
   onRoleChange: (role: Role) => void;
+  onExitToInitialScreen: () => void;
   patients: Patient[];
   currentPatientId: string;
   onPatientChange: (patientId: string) => void;
@@ -26,13 +32,14 @@ interface RoleSwitcherProps {
   onResetData: () => void;
   activeScreenId: FigmaScreenId;
   onNavigateScreen: (screenId: FigmaScreenId) => void;
-  deviceMode: 'desktop' | 'mobile';
-  onToggleDeviceMode: (mode: 'desktop' | 'mobile') => void;
+  deviceMode: DeviceViewMode;
+  onToggleDeviceMode: (mode: DeviceViewMode) => void;
 }
 
 export const RoleSwitcher: React.FC<RoleSwitcherProps> = ({
   currentRole,
   onRoleChange,
+  onExitToInitialScreen,
   patients,
   currentPatientId,
   onPatientChange,
@@ -49,13 +56,28 @@ export const RoleSwitcher: React.FC<RoleSwitcherProps> = ({
   const [showAcademicNavigator, setShowAcademicNavigator] = useState(false);
   const currentPatient = patients.find((p) => p.id === currentPatientId);
 
+  const getRoleLabel = () => {
+    switch (currentRole) {
+      case 'paciente':
+        return 'Paciente';
+      case 'recepcion':
+        return 'Recepción';
+      case 'profesional':
+        return 'Profesional de Salud';
+      case 'admin':
+        return 'Administración (Reportes)';
+      default:
+        return 'Selección de Rol';
+    }
+  };
+
   return (
     <div className="bg-slate-900 text-slate-100 border-b border-slate-800 text-xs py-2 px-3 sm:px-4 shadow-inner no-print z-50 relative">
-      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
         
-        {/* Left: Device Switcher + Roles */}
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-          {/* Discrete Computadora / Celular Selector */}
+        {/* Left: Device Switcher (Computadora / Tablet / Teléfono) + Cambiar Rol */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* 3-Device View Selector: Computadora / Tablet / Teléfono */}
           <div className="flex items-center bg-slate-800/90 p-0.5 rounded-lg border border-slate-700">
             <button
               onClick={() => onToggleDeviceMode('desktop')}
@@ -64,11 +86,25 @@ export const RoleSwitcher: React.FC<RoleSwitcherProps> = ({
                   ? 'bg-[#244A86] text-white shadow-xs'
                   : 'text-slate-400 hover:text-white'
               }`}
-              title="Vista de Computadora (Escritorio)"
+              title="Vista de Computadora (Escritorio amplio)"
             >
               <Monitor className="w-3.5 h-3.5" />
               <span>Computadora</span>
             </button>
+
+            <button
+              onClick={() => onToggleDeviceMode('tablet')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                deviceMode === 'tablet'
+                  ? 'bg-[#244A86] text-white shadow-xs'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Vista de Tablet (Intermedia 768 px)"
+            >
+              <Tablet className="w-3.5 h-3.5" />
+              <span>Tablet</span>
+            </button>
+
             <button
               onClick={() => onToggleDeviceMode('mobile')}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
@@ -76,72 +112,45 @@ export const RoleSwitcher: React.FC<RoleSwitcherProps> = ({
                   ? 'bg-[#244A86] text-white shadow-xs'
                   : 'text-slate-400 hover:text-white'
               }`}
-              title="Vista de Celular (Figma 390 px)"
+              title="Vista de Teléfono (Figma 390 px)"
             >
               <Smartphone className="w-3.5 h-3.5" />
-              <span>Celular</span>
+              <span>Teléfono</span>
             </button>
           </div>
 
           <div className="h-4 w-px bg-slate-800 hidden sm:block mx-1" />
 
-          {/* Role selector buttons */}
-          <div className="flex items-center gap-1 bg-slate-800/60 p-0.5 rounded-lg border border-slate-800">
-            <button
-              onClick={() => onRoleChange('paciente')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-medium transition-all ${
-                currentRole === 'paciente'
-                  ? 'bg-[#244A86] text-white shadow-sm ring-1 ring-blue-400/30'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <User className="w-3.5 h-3.5 text-blue-300" />
-              <span>Paciente</span>
-            </button>
+          {/* Role Status or Return Button */}
+          {currentRole === null ? (
+            <span className="text-slate-400 text-[11px] font-medium bg-slate-800/60 px-2.5 py-1 rounded-md border border-slate-700/60">
+              Inicio · Elige tu rol para comenzar
+            </span>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold text-blue-200 bg-blue-950/80 px-2.5 py-1 rounded-md border border-blue-800/60 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
+                <span>{getRoleLabel()}</span>
+              </span>
 
-            <button
-              onClick={() => onRoleChange('recepcion')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-medium transition-all ${
-                currentRole === 'recepcion'
-                  ? 'bg-[#244A86] text-white shadow-sm ring-1 ring-blue-400/30'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <ClipboardList className="w-3.5 h-3.5 text-amber-300" />
-              <span>Recepción</span>
-            </button>
+              {/* Botón Cambiar Rol: Regresa a la pantalla inicial de los 3 roles */}
+              <button
+                onClick={onExitToInitialScreen}
+                className="flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-md text-[11px] font-semibold transition-colors border border-slate-700"
+                title="Cerrar este perfil y regresar a la pantalla inicial"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-blue-300" />
+                <span>Cambiar Rol</span>
+              </button>
+            </div>
+          )}
 
-            <button
-              onClick={() => onRoleChange('profesional')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-medium transition-all ${
-                currentRole === 'profesional'
-                  ? 'bg-[#244A86] text-white shadow-sm ring-1 ring-blue-400/30'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <Stethoscope className="w-3.5 h-3.5 text-emerald-300" />
-              <span>Profesional</span>
-            </button>
-
-            <button
-              onClick={() => onRoleChange('admin')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-medium transition-all ${
-                currentRole === 'admin'
-                  ? 'bg-[#244A86] text-white shadow-sm ring-1 ring-blue-400/30'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <BarChart3 className="w-3.5 h-3.5 text-purple-300" />
-              <span>Admin</span>
-            </button>
-          </div>
-
-          {/* Academic Screen Navigator: HIDDEN BY DEFAULT */}
+          {/* Academic Demo Jumper (HIDDEN BY DEFAULT) */}
           {!showAcademicNavigator ? (
             <button
               onClick={() => setShowAcademicNavigator(true)}
               className="flex items-center gap-1.5 px-2 py-1 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 rounded-md text-[11px] transition-colors border border-dashed border-slate-700/80"
-              title="Activar selector de demostración para evaluación"
+              title="Herramienta de demostración académica (oculta por defecto)"
             >
               <Layers className="w-3 h-3 text-blue-400" />
               <span>Modo Demostración</span>
@@ -222,11 +231,11 @@ export const RoleSwitcher: React.FC<RoleSwitcherProps> = ({
           )}
         </div>
 
-        {/* Right: Simulation Context & Reset */}
+        {/* Right: Simulation Context & Reset Data */}
         <div className="flex items-center gap-2 flex-wrap ml-auto">
           {currentRole === 'paciente' && (
             <div className="flex items-center gap-1.5">
-              <span className="text-slate-400 hidden xl:inline">Simular como:</span>
+              <span className="text-slate-400 hidden xl:inline">Simular paciente:</span>
               <select
                 value={currentPatientId}
                 onChange={(e) => onPatientChange(e.target.value)}
@@ -264,23 +273,9 @@ export const RoleSwitcher: React.FC<RoleSwitcherProps> = ({
             </div>
           )}
 
-          {currentRole === 'recepcion' && (
-            <div className="text-slate-300 bg-slate-800/80 px-2 py-1 rounded border border-slate-700 flex items-center gap-1.5 text-[11px]">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
-              <span>Carmen Menjívar (Ventanilla)</span>
-            </div>
-          )}
-
-          {currentRole === 'admin' && (
-            <div className="text-slate-300 bg-slate-800/80 px-2 py-1 rounded border border-slate-700 flex items-center gap-1.5 text-[11px]">
-              <span className="w-2 h-2 rounded-full bg-purple-400 inline-block"></span>
-              <span>Dirección Médica</span>
-            </div>
-          )}
-
           <button
             onClick={onResetData}
-            title="Restablecer todos los datos iniciales y citas de demostración"
+            title="Restablecer todos los datos iniciales y citas de prueba"
             className="flex items-center gap-1 text-slate-400 hover:text-rose-300 hover:bg-slate-800 px-2 py-1 rounded transition-colors text-[11px]"
           >
             <RotateCcw className="w-3 h-3" />
